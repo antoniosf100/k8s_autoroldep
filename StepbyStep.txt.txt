@@ -1,0 +1,139 @@
+##### тут представлен листинг команд.
+
+###### создаём app с именем "demo" версии V2 в Eclipse 
+	****spring boot + eclipse
+	приложение лежит тут (..../V2)
+
+
+##### создаём docker image с нашим app версии V2
+	****Docker+tomcat
+	docker login
+	docker pull tomcat:latest
+	docker images
+	docker tag tomcat:latest antoniosf100/mydemoapp:v1
+	docker images
+	docker push antoniosf100/mydemoapp:v1
+	docker pull antoniosf100/mydemoapp:v1 
+	docker run --name testcontainer -d antoniosf100/mydemoapp:v1
+	docker ps
+	docker cp /tmp/demo.war testcontainer:/usr/local/tomcat/webapps      (файл demo.war берём из папки autorolling\app\V2)
+	docker exec -it testcontainer /bin/bash
+	ls -la /usr/local/tomcat/webapps
+	exit
+	docker container stop testcontainer
+	docker ps
+	docker commit <container_ID>  antoniosf100/mydemoapp:v2
+	docker commit 839b357c35e1   antoniosf100/mydemoapp:v2
+	docker push antoniosf100/mydemoapp:v2
+	docker run -d -p 8888:8080 antoniosf100/mydemoapp:v2
+	firefox 127.0.0.1:8888/demo/hello
+	firefox 127.0.0.1:8888/demo/ping
+	Итог: готовый docker image можно забарть командой: docker pull antoniosf100/mydemoapp:v2
+
+
+##### создаём app с именем "demo" версии V3 в Eclipse
+	****spring boot + eclipse
+	приложение лежит тут (..../V3)
+	
+
+##### создаём docker image с нашим app версии V3
+	****Docker+tomcat
+	docker container start testcontainer
+	docker exec -it testcontainer /bin/bash
+	ls -la /usr/local/tomcat/webapps
+	rm -rf /usr/local/tomcat/webapps/demo.war
+	rm -rf /usr/local/tomcat/webapps/demo
+	ls -la /usr/local/tomcat/webapps
+	docker cp /tmp/demo.war testcontainer:/usr/local/tomcat/webapps       (файл demo.war берём из папки autorolling\app\V3)
+	docker exec -it testcontainer /bin/bash
+	ls -la /usr/local/tomcat/webapps
+	exit
+	docker container stop testcontainer
+	docker ps
+	docker commit 839b357c35e1   antoniosf100/mydemoapp:v3
+	docker push antoniosf100/mydemoapp:v3
+	docker run -d -p 8888:8080 antoniosf100/mydemoapp:v3
+	firefox 127.0.0.1:8888/demo/hello
+	firefox 127.0.0.1:8888/demo/ping
+	Итог: готовый docker image можно забарть командой: docker pull antoniosf100/mydemoapp:v3
+
+
+
+##### С Windows (host-машина)устанавливаем minikube через PowerShell ( будет создана VM c minikube)
+	****k8s+kubectl+minikube
+	PS C:\less1> minikube start                           -- создать/запустить виртуальную машину  minikube
+	PS C:\less1> kubectl get componentstatus              -- показать статус состяний компонентов кластера
+	PS C:\less1> kubectl cluster-info                     -- показать ссылки URL о кслтере
+	PS C:\less1> kubectl cluster-info dump                -- диагностика проблем кластера
+	PS C:\less1> kubectl get nodes                        -- показать все сервера нашнго кластера.
+	PS C:\less1> minikube ip							  -- посмотреть IP виртуалки с minikube
+		192.168.99.101
+		 username: “docker“, password: “tcuser“
+		 
+	# прочие команды
+	kubectl apply -f deployment.yaml --record
+	kubectl get deployments
+	kubectl get pods -o wide
+	kubectl get pods --show-labels
+	kubectl get svc tomcat-svc
+	kubectl describe svc tomcat-svc
+	kubectl describe deployments
+
+
+
+###### Доп_настройки.(Linux машина нам нужна для выполнения скрипта autoroll.sh ,
+####### который проверяет состояние rollout и если оно не успешено , то делается rollback
+	****k8s+kubectl+minikube+autoroll.sh
+	На Linux машине с kubectl утилитой.Вместо $USER и $HOME нужно подставить ваши переменные.
+	Выполнить:
+	export KUBECONFIG=$KUBECONFIG:$HOME/.kube/config
+	mkdir /home/$USER/.kube             
+	touch /home/$USER/.kube/config
+	sudo vi /home/$USER/.kube/config
+	скопировать содержимое файла с Windows машины C:\Users\anton\.kube\config в Linux /home/anton/.kube/config
+	Скопировать файлы сертификаты (ca.crt, client.crt, client.key) с Windows машины на  Linux /home/$USER/.minikube/
+	заменить пути в config для файлов сертификатов
+	На Linux обнавляем ip для  связи с VB
+	я делел это через утилиту yast (у меня Linux Suse, в ubuntu 18.4 это получается хуже при связке именно с VB)
+	перезапустить Linux
+	sudo mkdir /home/$USER/kubdep
+	sudo touch /home/$USER/kubdep/autoroll.sh
+	sudo chmod +x /home/$USER/kubdep/autoroll.sh
+	sudo vi /home/$USER/kubdep/autoroll.sh
+	sudo mv /tmp/deployment-failed.yaml /home/$USER/kubdep
+
+
+###### установка версии V2 сервиса
+	****kubectl
+	kubectl apply -f deployment.yaml --record
+	Со своей машины выполнить команду: minikube ip (полученный ip подставить в следующую строку) 
+	http://<minikube ip>/demo/hello  (Вернёт Дату и время)
+	http://<minikube ip>/demo/ping  (Вернёт pong)
+
+###### обновление версии V3 сервиса
+	****kubectl
+	kubectl apply -f deployment-update.yaml --record
+	http://<minikube ip>/demo/hello  (Вернёт Дату и время , а также метку версии(в нашем случае V3))
+	
+###### обновление версии V1 сервиса ("битая" версия сервиса)
+	****kubectl
+	kubectl apply -f deployment-update.yaml --record
+	
+	http://<minikube ip>/demo/hello  (Вернёт ошибку)
+	
+	
+###### откат сервиса к предыдущей версии (ручной откат , через выполнение команд).
+	****kubectl
+	--смотрим сначало чем отличаются ревизии.
+	kubectl rollout history deployment.v1.apps/tomcat-deployment --revision=2
+	kubectl rollout history deployment.v1.apps/tomcat-deployment --revision=1
+	--нам нужна ревизия 1(v2 нашего app), а в ревизии 2 (v3 нашего app).
+	--выполняем откат к нужной нам ревизии. в нашем случае это ревизия 1.  
+	kubectl rollout undo deployment.v1.apps/tomcat-deployment --to-revision=1
+	--проверем статус отката к предыдущей ревизии.
+	kubectl rollout status deployment.v1.apps/tomcat-deployment
+
+##### откат сервиса к предыдущей версии (автоматический rollback через скрипт)(Linux машина)
+	****autoroll.sh
+	cd /home/anton/kubdep/
+	sh autoroll.sh deployment-failed.yaml
